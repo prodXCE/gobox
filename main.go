@@ -45,7 +45,9 @@ func runParent(rootfsPath string, args []string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWNS,
+	}
 
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("Parent: Error running child: %v\n", err)
@@ -56,13 +58,23 @@ func runParent(rootfsPath string, args []string) {
 func runChild(rootfsPath string, args []string) {
 	fmt.Printf("Child: Setting up jail in %s and running %v\n", rootfsPath, args)
 
-	if err := os.Chdir("/"); err != nil {
-		fmt.Printf("Child: Chdir error: %v\n", err)
+	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+		fmt.Printf("Child:Mount private error: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := os.Chdir("/"); err != nil {
 		fmt.Printf("Child: Chdir error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := syscall.Mount("proc", "proc", "proc", 0, ""); err != nil {
+		fmt.Printf("Child: Mount proc error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := syscall.Mount("tmpfs", "tmp", "tmpfs", 0, ""); err != nil {
+		fmt.Printf("Child: Mount tmpfs error: %v\n", err)
 		os.Exit(1)
 	}
 
